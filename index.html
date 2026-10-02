@@ -68,11 +68,11 @@
   <script>
     const API_KEY = 'CWA-AAEECBF8-680D-47E2-812A-224F270FE69E';
     
-    // 原始氣象署 API 網址 (顯著有感地震 F-C0033-001)
+    // 氣象署 API 原始網址 (顯著有感地震 F-C0033-001)
     const rawUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0033-001?Authorization=${API_KEY}&format=JSON`;
     
-    // 透過 CORS Proxy 繞過瀏覽器限制，讓 GitHub Pages 能順利抓取
-    const URL = `https://corsproxy.io/?${encodeURIComponent(rawUrl)}`;
+    // 改用 AllOrigins 代理，確保在 Netlify 上能穩定取得資料
+    const URL = `https://api.allorigins.win/get?url=${encodeURIComponent(rawUrl)}`;
 
     async function fetchEarthquakeData() {
       const loadingEl = document.getElementById('loading');
@@ -84,7 +84,11 @@
 
       try {
         const response = await fetch(URL);
-        const data = await response.json();
+        if (!response.ok) throw new Error('網路回應不成功');
+        
+        const proxyData = await response.json();
+        // AllOrigins 會把目標網頁的內容包在 contents 欄位裡（字串格式需要 JSON.parse）
+        const data = JSON.parse(proxyData.contents);
         
         const earthquakes = data.records.Earthquake;
         if (earthquakes && earthquakes.length > 0) {
