@@ -1,1 +1,0 @@
-/api/earthquake/* https://opendata.cwa.gov.tw/api/v1/rest/datastore/:splat 200
