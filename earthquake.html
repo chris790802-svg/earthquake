@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>台灣即時地震監控看板</title>
+  <!-- 引入 Tailwind CSS 快速排版 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8">
+  <div class="max-w-3xl mx-auto">
+    <!-- 標題 -->
+    <header class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-wider text-amber-400">⚡ 台灣即時地震監控</h1>
+        <p class="text-xs text-slate-400 mt-1">資料來源：交通部中央氣象署</p>
+      </div>
+      <button onclick="fetchEarthquakeData()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition shadow-lg">
+        重新整理
+      </button>
+    </header>
+
+    <!-- 載入中狀態 -->
+    <div id="loading" class="text-center py-12 text-slate-400">
+      正在向氣象署獲取最新地震資料...
+    </div>
+
+    <!-- 地震內容卡片 (預設隱藏) -->
+    <div id="eq-card" class="hidden space-y-6">
+      <!-- 核心數值摘要 -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center">
+          <div class="text-xs text-slate-400 mb-1">地震規模</div>
+          <div id="eq-mag" class="text-3xl font-extrabold text-red-400">--</div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center">
+          <div class="text-xs text-slate-400 mb-1">深度 (公里)</div>
+          <div id="eq-depth" class="text-3xl font-extrabold text-sky-400">--</div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 col-span-2 text-center">
+          <div class="text-xs text-slate-400 mb-1">發生時間</div>
+          <div id="eq-time" class="text-lg font-bold text-slate-200 mt-1">--</div>
+        </div>
+      </div>
+
+      <!-- 震央與詳細資訊 -->
+      <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
+        <div>
+          <h2 class="text-xs uppercase tracking-wider text-slate-400 mb-1">震央位置</h2>
+          <p id="eq-location" class="text-xl font-semibold text-amber-200">--</p>
+        </div>
+        <div>
+          <h2 class="text-xs uppercase tracking-wider text-slate-400 mb-1">詳細描述</h2>
+          <p id="eq-content" class="text-slate-300 leading-relaxed bg-slate-900 p-4 rounded-lg border border-slate-800">--</p>
+        </div>
+      </div>
+
+      <!-- 更多歷程紀錄列表 -->
+      <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+        <h2 class="text-md font-bold mb-3 text-slate-300 border-b border-slate-700 pb-2">近期地震列表</h2>
+        <div id="eq-list" class="space-y-2 text-sm text-slate-400">
+          <!-- 動態插入 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = 'CWA-AAEECBF8-680D-47E2-812A-224F270FE69E';
+    // 顯著有感地震資料集 ID: F-C0033-001
+    const URL = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0033-001?Authorization=${API_KEY}&format=JSON`;
+
+    async function fetchEarthquakeData() {
+      const loadingEl = document.getElementById('loading');
+      const cardEl = document.getElementById('eq-card');
+      
+      loadingEl.textContent = '正在更新資料...';
+      loadingEl.classList.remove('hidden');
+      cardEl.classList.add('hidden');
+
+      try {
+        const response = await fetch(URL);
+        const data = await response.json();
+        
+        const earthquakes = data.records.Earthquake;
+        if (earthquakes && earthquakes.length > 0) {
+          // 最新一筆地震
+          const latest = earthquakes[0];
+          const info = latest.EarthquakeInfo;
+
+          // 填入資料
+          document.getElementById('eq-mag').textContent = `M ${info.EarthquakeMagnitude.MagnitudeValue}`;
+          document.getElementById('eq-depth').textContent = info.FocalDepth;
+          document.getElementById('eq-time').textContent = info.OriginTime;
+          document.getElementById('eq-location').textContent = info.Epicenter.Location;
+          document.getElementById('eq-content').textContent = latest.ReportContent || '無詳細描述';
+
+          // 渲染近期列表 (取前 5 筆)
+          const listEl = document.getElementById('eq-list');
+          listEl.innerHTML = '';
+          earthquakes.slice(0, 5).forEach((eq, index) => {
+            const eqInfo = eq.EarthquakeInfo;
+            const item = document.createElement('div');
+            item.className = 'flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0';
+            item.innerHTML = `
+              <span class="text-slate-300">${eqInfo.OriginTime}</span>
+              <span class="text-amber-400 font-medium">規模 ${eqInfo.EarthquakeMagnitude.MagnitudeValue}</span>
+              <span class="text-slate-400 text-xs truncate max-w-[150px] md:max-w-xs">${eqInfo.Epicenter.Location}</span>
+            `;
+            listEl.appendChild(item);
+          });
+
+          loadingEl.classList.add('hidden');
+          cardEl.classList.remove('hidden');
+        } else {
+          loadingEl.textContent = '目前沒有查到地震資料。';
+        }
+      } catch (error) {
+        console.error('API 抓取失敗:', error);
+        loadingEl.textContent = '抓取地震資料失敗，請檢查網路連線或授權碼狀態。';
+      }
+    }
+
+    // 頁面載入時執行
+    fetchEarthquakeData();
+
+    // 每 5 分鐘自動更新一次
+    setInterval(fetchEarthquakeData, 300000);
+  </script>
+</body>
+</html>
